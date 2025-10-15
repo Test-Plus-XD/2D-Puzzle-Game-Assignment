@@ -7,7 +7,7 @@ public class Straw : MonoBehaviour
     public bool loop = true; // Toggle automatic looping when rotation stops changing
     public float maxSpeed = 60f; // Motor target speed magnitude in degrees/sec when not switching
     public float changeDuration = 1f; // Time in seconds to smoothly interpolate motor speed when switching
-    public float maxMotorTorque = 100f; // Torque applied by the motor
+    public float maxMotorTorque = 1000f; // Torque applied by the motor
 
     // Detection tuning (small, sensible defaults)
     public float stopAngularSpeedThreshold = 1f; // degrees/sec below which rotation is considered 'stopped'
