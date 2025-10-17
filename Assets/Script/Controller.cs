@@ -1,51 +1,57 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// Handles player touch/mouse input and renders the connecting line and pointers.
+/// Handles player touch/mouse input and renders the connecting line and finger pointer.
+/// The last topping pointer was removed; Logic now draws dot visuals.
 [RequireComponent(typeof(LineRenderer))]
 public class Controller : MonoBehaviour
 {
-    public Camera mainCamera; // assign main camera (defaults to Camera.main)
-    public LayerMask interactableLayerMask; // layer mask for toppings
-    public float fingerFollowSmoothing = 0.02f; // lerp smoothing for finger pointer
+    public Camera mainCamera; // Assign main camera (defaults to Camera.main)
+    public LayerMask interactableLayerMask; // Layer mask for toppings
+    public float followSmoothing = 0.03f; // Smoothing for finger pointer movement
 
-    public GameObject fingerPointerPrefab; // pointer sprite following the finger
-    public GameObject lastToppingPointerPrefab; // pointer sprite at the last connected topping
+    public GameObject pointerPrefab; // Pointer sprite following the finger
+    public GameObject dotPrefab; // Small dot prefab to show on connected toppings
+    public Transform dotContainer; // Parent for created dots
 
-    private LineRenderer lineRenderer; // line renderer used to draw chain
-    private GameObject fingerPointerInstance; // instance for finger
-    private GameObject lastToppingPointerInstance; // instance for last topping
-    private List<Transform> connectedToppingTransforms = new List<Transform>(); // for visual chain
-    private Vector3 smoothedFingerWorldPosition = Vector3.zero; // smoothed position
-    private bool isTouching = false; // whether input is active
+    public AudioClip chainSound; // Sound played when a new topping is added to the chain
+    public float basePitch = 1f; // Base pitch for the sound
+    public float pitchIncrease = 0.1f; // Pitch increase per new chain increment
+
+    private LineRenderer lineRenderer; // For chain rendering
+    private GameObject pointerInstance; // Finger pointer instance
+    private List<Transform> connectedToppingTransforms = new List<Transform>(); // Transforms for line points
+    private List<GameObject> createdDots = new List<GameObject>(); // Created dots
+    private Vector3 smoothedWorldPosition = Vector3.zero; // Smoothed finger position
+    private bool isTouching = false; // Whether input is active
+
+    private AudioSource audioSource; // Audio source to play the sound
 
     void Awake()
     {
         lineRenderer = GetComponent<LineRenderer>();
         if(mainCamera == null) mainCamera = Camera.main;
-        // ensure LineRenderer settings for tiled sprite
-        lineRenderer.useWorldSpace = false; // match Lesson 04 recommendation
+        // Ensure LineRenderer settings for tiled sprite and camera-facing alignment
+        lineRenderer.useWorldSpace = false;
         lineRenderer.positionCount = 0;
+        lineRenderer.alignment = LineAlignment.View; // Face camera without deforming shape
+
+        audioSource = gameObject.AddComponent<AudioSource>(); // Add audio source component if not present
     }
 
     void Start()
     {
-        // create pointer instances if prefabs assigned
-        if(fingerPointerPrefab != null)
+        // Create finger pointer instance if prefab assigned
+        if(pointerPrefab != null)
         {
-            fingerPointerInstance = Instantiate(fingerPointerPrefab, transform);
-            fingerPointerInstance.SetActive(false);
-        }
-        if(lastToppingPointerPrefab != null)
-        {
-            lastToppingPointerInstance = Instantiate(lastToppingPointerPrefab, transform);
-            lastToppingPointerInstance.SetActive(false);
+            pointerInstance = Instantiate(pointerPrefab, transform);
+            pointerInstance.SetActive(false);
         }
     }
 
     void Update()
     {
-        // update input: support mouse or first touch only
+        // Read input (mouse or first touch)
         Vector3 rawWorldPosition;
         bool inputDown = false;
         bool inputHeld = false;
@@ -73,41 +79,76 @@ public class Controller : MonoBehaviour
 
         rawWorldPosition.z = 0f;
 
-        // smooth finger pointer movement
-        smoothedFingerWorldPosition = Vector3.Lerp(smoothedFingerWorldPosition, rawWorldPosition, Mathf.Clamp01(Time.deltaTime / Mathf.Max(1e-6f, fingerFollowSmoothing)));
+        // Smooth finger pointer movement
+        smoothedWorldPosition = Vector3.Lerp(smoothedWorldPosition, rawWorldPosition, Mathf.Clamp01(Time.deltaTime / Mathf.Max(1e-6f, followSmoothing)));
 
-        // show/hide finger pointer
-        if(fingerPointerInstance != null) fingerPointerInstance.SetActive(inputHeld);
-        if(fingerPointerInstance != null) fingerPointerInstance.transform.position = smoothedFingerWorldPosition;
-
-        // update line rendering points from current connected list + finger position
-        UpdateLineVisual(inputHeld, smoothedFingerWorldPosition);
-
-        // show/hide last topping pointer
-        if(lastToppingPointerInstance != null)
+        // Show/hide finger pointer
+        if(pointerInstance != null)
         {
-            if(connectedToppingTransforms.Count > 0)
-            {
-                var lastTransform = connectedToppingTransforms[connectedToppingTransforms.Count - 1];
-                lastToppingPointerInstance.SetActive(true);
-                lastToppingPointerInstance.transform.position = lastTransform.position;
-            } else lastToppingPointerInstance.SetActive(false);
+            pointerInstance.SetActive(inputHeld);
+            pointerInstance.transform.position = smoothedWorldPosition;
         }
 
-        // forward input events to the logic system by using events or FindObjectOfType
-        // (Logic will manage storing the touched items). Call the methods here as necessary.
+        // Rotate finger pointer to face from last connected topping to the finger
+        if(pointerInstance != null && connectedToppingTransforms.Count > 0)
+        {
+            Transform lastTransform = connectedToppingTransforms[connectedToppingTransforms.Count - 1];
+            Vector3 fromLastToFinger = (smoothedWorldPosition - lastTransform.position).normalized;
+            if(fromLastToFinger.sqrMagnitude > 0.0001f)
+            {
+                float angle = Mathf.Atan2(fromLastToFinger.y, fromLastToFinger.x) * Mathf.Rad2Deg;
+                angle -= 90f; // Apply the -90 degree adjustment
+                pointerInstance.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            }
+        } else if(pointerInstance != null)
+        {
+            // If no last topping, pointer faces upward by default
+            pointerInstance.transform.rotation = Quaternion.identity;
+        }
+
+        // Update line visuals
+        UpdateLineVisual(inputHeld, smoothedWorldPosition);
+
+        // Update dot positions
+        UpdateDots();
+
+        // Notify Logic using Unity6 API
         if(inputDown) TryNotifyLogicPress(rawWorldPosition);
         if(inputHeld) TryNotifyLogicHold(rawWorldPosition);
         if(inputUp) TryNotifyLogicRelease(rawWorldPosition);
     }
 
-    // Called by Logic when a topping is added/removed so the visual chain updates
+    // Called by Logic when the stored toppings change so visuals update
     public void SetConnectedToppings(List<Transform> toppingTransforms)
     {
         connectedToppingTransforms = toppingTransforms ?? new List<Transform>();
+        UpdateDots(); // Update dot positions when toppings change
     }
 
-    // Update LineRenderer positions to match connected toppings and current finger
+    // Create small dot at topping position and store it for later removal
+    public void CreateDotForTopping(GameObject topping)
+    {
+        if(dotPrefab == null) return;
+
+        // Instantiate the dot prefab for the topping
+        GameObject dot = Instantiate(dotPrefab, topping.transform.position, Quaternion.identity, dotContainer);
+        createdDots.Add(dot);
+    }
+
+    // Update the dot's position to follow each chained topping
+    void UpdateDots()
+    {
+        for(int i = 0; i < createdDots.Count; i++)
+        {
+            if(i < connectedToppingTransforms.Count)
+            {
+                // Move the dot to the corresponding topping's position
+                createdDots[i].transform.position = connectedToppingTransforms[i].position;
+            }
+        }
+    }
+
+    // Update the LineRenderer positions to match connected toppings and finger
     void UpdateLineVisual(bool includeFingerEnd, Vector3 fingerPosition)
     {
         int baseCount = connectedToppingTransforms.Count;
@@ -116,7 +157,6 @@ public class Controller : MonoBehaviour
 
         for(int i = 0; i < baseCount; i++)
         {
-            // positions are local to the controller GameObject (lineRenderer.useWorldSpace = false)
             Vector3 localPos = transform.InverseTransformPoint(connectedToppingTransforms[i].position);
             lineRenderer.SetPosition(i, localPos);
         }
@@ -127,27 +167,36 @@ public class Controller : MonoBehaviour
             lineRenderer.SetPosition(lineRenderer.positionCount - 1, localFinger);
         }
 
-        // If there are no points, reset
-        if(lineRenderer.positionCount == 0) lineRenderer.enabled = false;
-        else lineRenderer.enabled = true;
+        lineRenderer.enabled = (lineRenderer.positionCount > 0);
     }
 
-    // These helper methods try to forward input to a Logic instance in the scene
+    // Play the chain increment sound and adjust pitch
+    public void PlayChainIncrementSound()
+    {
+        if(chainSound != null && audioSource != null)
+        {
+            // Increase pitch based on chain length
+            audioSource.pitch = basePitch + (connectedToppingTransforms.Count - 1) * pitchIncrease;
+            audioSource.PlayOneShot(chainSound);
+        }
+    }
+
+    // Use Unity 6 recommended API to find Logic
     void TryNotifyLogicPress(Vector3 worldPosition)
     {
-        var logic = FindFirstObjectByType<Logic>();
+        var logic = Object.FindFirstObjectByType<Logic>();
         if(logic != null) logic.OnPress(worldPosition);
     }
 
     void TryNotifyLogicHold(Vector3 worldPosition)
     {
-        var logic = FindFirstObjectByType<Logic>();
+        var logic = Object.FindFirstObjectByType<Logic>();
         if(logic != null) logic.OnHold(worldPosition);
     }
 
     void TryNotifyLogicRelease(Vector3 worldPosition)
     {
-        var logic = FindFirstObjectByType<Logic>();
+        var logic = Object.FindFirstObjectByType<Logic>();
         if(logic != null) logic.OnRelease(worldPosition);
     }
 }
