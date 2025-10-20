@@ -15,7 +15,7 @@ public class Topping : MonoBehaviour
     private Collider2D objectCollider; // Cached Collider2D
     private SpriteRenderer spriteRenderer; // Cached SpriteRenderer
 
-    void Awake()
+    private void Awake()
     {
         // Cache components for performance
         rigidBody = GetComponent<Rigidbody2D>();

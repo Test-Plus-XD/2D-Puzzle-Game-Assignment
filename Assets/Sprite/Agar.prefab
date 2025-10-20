@@ -30,7 +30,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 1.5, z: 0}
-  m_LocalScale: {x: 0.9, y: 0.9, z: 0.9}
+  m_LocalScale: {x: 1.2, y: 1.2, z: 1.2}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
@@ -47,6 +47,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56e0ee0032e83c440aa9a20aaf7e23a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Topping
+  explosionParticlePrefab: {fileID: 0}
+  destroyDelay: 0.6
+  scaleShrinkSpeed: 3
+  removeSound: {fileID: 0}
+  soundVolume: 0.6
 --- !u!212 &3095413495836816582
 SpriteRenderer:
   serializedVersion: 2

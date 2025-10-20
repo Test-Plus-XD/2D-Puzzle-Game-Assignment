@@ -26,7 +26,7 @@ public class Spawner : MonoBehaviour
 
     private float totalWeight; // cached weight sum
 
-    void Awake()
+    private void Awake()
     {
         // Calculate total weight
         totalWeight = 0f;

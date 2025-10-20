@@ -10,10 +10,18 @@ public class Logic : MonoBehaviour
     public float holdToRegisterDelay = 0f; // Optional small delay before registering hold
 
     public Spawner spawner; // Reference to spawner to request more items
+    public Controller controller; // Reference to controller to request UI
 
-    private List<GameObject> storedToppings = new List<GameObject>(); // Stored chain objects
+    readonly List<GameObject> storedToppings = new List<GameObject>(); // Stored chain objects
     private string storedToppingTag = null; // Tag we are matching during the current chain
     private bool inputActive = false; // Whether a press is in progress
+
+    private void Awake()
+    {
+        // Cache references if not assigned
+        if(controller == null) controller = FindFirstObjectByType<Controller>();
+        if(spawner == null) spawner = FindFirstObjectByType<Spawner>();
+    }
 
     // Called by Controller when touch begins
     public void OnPress(Vector3 worldPosition)
@@ -46,7 +54,7 @@ public class Logic : MonoBehaviour
     }
 
     // Try to see if a topping is under the given world position and register it
-    void TryRegisterAtPosition(Vector3 worldPosition)
+    private void TryRegisterAtPosition(Vector3 worldPosition)
     {
         Vector2 point = new Vector2(worldPosition.x, worldPosition.y);
         Collider2D hit = Physics2D.OverlapPoint(point, toppingLayerMask);
@@ -55,38 +63,60 @@ public class Logic : MonoBehaviour
         GameObject hitObject = hit.gameObject;
 
         // If first item, set the stored tag
-        if(storedToppings.Count == 0)
-        {
-            storedToppingTag = hitObject.tag;
-        }
-
+        if(storedToppings.Count == 0) storedToppingTag = hitObject.tag;
         // Only accept if tag matches stored tag
         if(storedToppingTag != hitObject.tag) return;
-
         // Prevent repeats
         if(storedToppings.Contains(hitObject)) return;
 
-        // Add to list
+        // If this is not the first topping, check if any other type blocks the line
+        if(storedToppings.Count > 0)
+        {
+            GameObject lastTopping = storedToppings[storedToppings.Count - 1];
+            Vector2 start = lastTopping.transform.position;
+            Vector2 end = hitObject.transform.position;
+            Vector2 direction = (end - start).normalized;
+            float distance = Vector2.Distance(start, end);
+
+            // Raycast between last and new topping to detect blockers
+            RaycastHit2D[] hits = Physics2D.RaycastAll(start, direction, distance, toppingLayerMask);
+
+            foreach(var h in hits)
+            {
+                if(h.collider == null) continue;
+                GameObject obj = h.collider.gameObject;
+                if(obj == lastTopping || obj == hitObject) continue;
+
+                // If any other topping has a different tag, block the connection
+                if(obj.tag != storedToppingTag)
+                {
+                    // Optional: play a small "blocked" sound or vibration feedback
+                    return; // Abort connection
+                }
+            }
+        }
+
+        // Passed the obstruction test — add to list
         storedToppings.Add(hitObject);
 
-        // Notify Controller for visuals (so it can show line & last pointer)
-        var controller = Object.FindFirstObjectByType<Controller>();
+        // Notify Controller for visuals (so it can show line & dots)
         if(controller != null)
         {
+            controller.CreateDotForTopping();
+
             List<Transform> transforms = new List<Transform>();
             foreach(var go in storedToppings) transforms.Add(go.transform);
             controller.SetConnectedToppings(transforms);
-        }
 
-        // Optionally: play hit sound, increase pitch, etc. per lesson
+            controller.PlayChainIncrementSound();
+        }
     }
 
     // Reset chain and remove dot visuals
-    void ResetChain()
+    public void ResetChain()
     {
         storedToppings.Clear();
         storedToppingTag = null;
-        var controller = Object.FindFirstObjectByType<Controller>();
         if(controller != null) controller.SetConnectedToppings(new List<Transform>());
     }
 
@@ -109,7 +139,7 @@ public class Logic : MonoBehaviour
             yield return new WaitForSeconds(0.1f);
         }
 
-        // Ask spawner to refill to balance lost items (lesson suggests calling spawner regenerate)
+        // Ask spawner to refill to balance lost items
         if(spawner != null) spawner.StartCoroutine(RefillCoroutine(itemsToClear.Length));
     }
 
