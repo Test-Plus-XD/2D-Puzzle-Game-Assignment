@@ -18,12 +18,35 @@ public class Controller : MonoBehaviour
     public float basePitch = 1f; // Base pitch for the sound
     public float pitchIncrease = 0.1f; // Pitch increase per new chain increment
 
+    // Camera zoom / pan settings
+    public bool enableCameraFollow = true; // Toggle camera follow behaviour
+    public float cameraFollowSmoothing = 0.12f; // Smoothing for camera movement
+    public float cameraZoomInAmount = 0.8f; // Target orthographic size multiplier when zoomed in (0.8 => 20% zoom in)
+    public float cameraZoomSmoothing = 0.12f; // Smoothing for camera zoom transitions
+    public float minCameraSize = 3f; // Minimum orthographic size clamp
+    public float maxCameraSize = 12f; // Maximum orthographic size clamp
+    [Tooltip("Weight for the last connected topping when computing the camera focus point (0..1). 0.75 means last topping contributes 75% and finger 25%.")]
+    public float cameraFocusWeightForLastTopping = 0.75f;
+    [Tooltip("Multiplier that controls how much camera follow speed is reduced with distance from world origin. Larger values slow more aggressively.")]
+    public float cameraFollowSlowdownMultiplier = 0.12f;
+    [Tooltip("Minimum allowed smoothing value for camera follow (slower).")]
+    public float cameraFollowMinSmoothing = 0.02f;
+    [Tooltip("Maximum allowed smoothing value for camera follow (faster).")]
+    public float cameraFollowMaxSmoothing = 0.18f;
+
+    public Logic gameLogic; // Cached Logic reference
+
     private LineRenderer lineRenderer; // For chain rendering
     private GameObject pointerInstance; // Finger pointer instance
     private List<Transform> connectedToppingTransforms = new List<Transform>(); // Transforms for line points
     readonly List<GameObject> createdDots = new List<GameObject>(); // Created dots
     private Vector3 smoothedWorldPosition = Vector3.zero; // Smoothed finger position
     private bool isTouching = false; // Whether input is active
+    // Camera runtime values
+    private Vector3 initialCameraPosition;
+    private float initialCameraSize;
+    private float targetCameraSize;
+    private Vector3 targetCameraPosition;
 
     private void Awake()
     {
@@ -33,9 +56,18 @@ public class Controller : MonoBehaviour
         lineRenderer.positionCount = 0;
 
         audioSource = gameObject.AddComponent<AudioSource>(); // Add audio source component if not present
+
+        // Cache camera initial values
+        if(mainCamera != null)
+        {
+            initialCameraPosition = mainCamera.transform.position;
+            initialCameraSize = Mathf.Clamp(mainCamera.orthographicSize, minCameraSize, maxCameraSize);
+            targetCameraSize = initialCameraSize;
+            targetCameraPosition = initialCameraPosition;
+        }
     }
 
-    void Start()
+    private void Start()
     {
         // Create finger pointer instance if prefab assigned
         if(pointerPrefab != null)
@@ -43,9 +75,11 @@ public class Controller : MonoBehaviour
             pointerInstance = Instantiate(pointerPrefab, transform);
             pointerInstance.SetActive(false);
         }
+
+        if(dotContainer == null) dotContainer = this.transform;
     }
 
-    void Update()
+    private void FixedUpdate()
     {
         // Read input (mouse or first touch)
         Vector3 rawWorldPosition;
@@ -85,7 +119,7 @@ public class Controller : MonoBehaviour
             pointerInstance.transform.position = smoothedWorldPosition;
         }
 
-        // Rotate finger pointer to face from last connected topping to the finger
+        // Rotate pointer to face from last connected topping to the finger
         if(pointerInstance != null && connectedToppingTransforms.Count > 0)
         {
             Transform lastTransform = connectedToppingTransforms[connectedToppingTransforms.Count - 1];
@@ -98,52 +132,45 @@ public class Controller : MonoBehaviour
             }
         } else if(pointerInstance != null)
         {
-            // If no last topping, pointer faces upward by default
             pointerInstance.transform.rotation = Quaternion.identity;
         }
 
         // Update line visuals
         UpdateLineVisual(inputHeld, smoothedWorldPosition);
 
-        // Update dot positions
+        // Update dot positions each frame
         UpdateDots();
 
-        // Notify Logic using Unity6 API
-        if(inputDown) TryNotifyLogicPress(rawWorldPosition);
-        if(inputHeld) TryNotifyLogicHold(rawWorldPosition);
-        if(inputUp) TryNotifyLogicRelease(rawWorldPosition);
+        // Camera follow & zoom while dragging
+        UpdateCameraFollow(inputHeld);
+
+        // Notify Logic using cached reference
+        if(inputDown && gameLogic != null) gameLogic.OnPress(rawWorldPosition);
+        if(inputHeld && gameLogic != null) gameLogic.OnHold(rawWorldPosition);
+        if(inputUp && gameLogic != null) gameLogic.OnRelease(rawWorldPosition);
     }
 
     // Called by Logic when the stored toppings change so visuals update
     public void SetConnectedToppings(List<Transform> toppingTransforms)
     {
-        // Replace transform list
         connectedToppingTransforms = toppingTransforms ?? new List<Transform>();
 
-        // Ensure createdDots list has the same count as transforms
-        // Create missing dots
-        while(createdDots.Count < connectedToppingTransforms.Count)
-        {
-            CreateDotForTopping(); // helper creates a dot GameObject and adds to createdDots
-        }
-
-        // Destroy extra dots if player removed items (safety)
+        // Ensure dot instances match transforms count
+        while(createdDots.Count < connectedToppingTransforms.Count) CreateDotForTopping();
         while(createdDots.Count > connectedToppingTransforms.Count)
         {
             GameObject last = createdDots[createdDots.Count - 1];
             createdDots.RemoveAt(createdDots.Count - 1);
             if(last != null) Destroy(last);
         }
-        // Immediately update positions
+
         UpdateDots();
     }
 
-    // Create small dot at topping position and store it for later removal
+    // Create small dot instance and register it
     public void CreateDotForTopping()
     {
         if(dotPrefab == null) return;
-
-        // Instantiate the dot prefab for the topping
         GameObject dot = Instantiate(dotPrefab, Vector3.zero, Quaternion.identity, dotContainer);
         createdDots.Add(dot);
     }
@@ -155,22 +182,11 @@ public class Controller : MonoBehaviour
         {
             if(i < connectedToppingTransforms.Count)
             {
-                // Move the dot to the corresponding topping's position
                 Transform toppingTransform = connectedToppingTransforms[i];
                 GameObject dot = createdDots[i];
-                if(toppingTransform != null && dot != null)
-                {
-                    dot.transform.position = toppingTransform.position;
-                }
+                if(toppingTransform != null && dot != null) dot.transform.position = toppingTransform.position;
             }
         }
-    }
-
-    // Helper to clear all dots (callable to force clear)
-    public void ClearDots()
-    {
-        for(int i = 0; i < createdDots.Count; i++) if(createdDots[i] != null) Destroy(createdDots[i]);
-        createdDots.Clear();
     }
 
     // Update the LineRenderer positions to match connected toppings and finger
@@ -198,30 +214,64 @@ public class Controller : MonoBehaviour
     public void PlayChainIncrementSound()
     {
         if(chainSound == null || audioSource == null) return;
-
-        // Increase pitch based on chain length
         float pitch = basePitch + Mathf.Max(0, connectedToppingTransforms.Count - 1) * pitchIncrease;
-        pitch = Mathf.Clamp(pitch, 0.25f, 3f); // Keep pitch reasonable
+        pitch = Mathf.Clamp(pitch, 0.5f, 3f);
         audioSource.pitch = pitch;
         audioSource.PlayOneShot(chainSound);
     }
 
-    // Use Unity 6 recommended API to find Logic
-    static void TryNotifyLogicPress(Vector3 worldPosition)
+    // Smooth camera follow & zoom while dragging, with position clamped to +-2 in X and Y axes
+    public void UpdateCameraFollow(bool isDragging)
     {
-        var logic = Object.FindFirstObjectByType<Logic>();
-        if(logic != null) logic.OnPress(worldPosition);
-    }
+        // If camera is missing or camera follow disabled, smoothly restore to initial values
+        if(mainCamera == null || !enableCameraFollow)
+        {
+            if(mainCamera != null)
+            {
+                mainCamera.transform.position = Vector3.Lerp(mainCamera.transform.position, initialCameraPosition, cameraFollowSmoothing);
+                mainCamera.orthographicSize = Mathf.Lerp(mainCamera.orthographicSize, initialCameraSize, cameraZoomSmoothing);
+            }
+            return;
+        }
 
-    static void TryNotifyLogicHold(Vector3 worldPosition)
-    {
-        var logic = Object.FindFirstObjectByType<Logic>();
-        if(logic != null) logic.OnHold(worldPosition);
-    }
+        // Default to initial camera targets
+        targetCameraPosition = initialCameraPosition;
+        targetCameraSize = initialCameraSize;
 
-    static void TryNotifyLogicRelease(Vector3 worldPosition)
-    {
-        var logic = Object.FindFirstObjectByType<Logic>();
-        if(logic != null) logic.OnRelease(worldPosition);
+        if(isDragging && connectedToppingTransforms.Count > 0)
+        {
+            // Compute weighted focus point between last topping and finger
+            Transform lastToppingTransform = connectedToppingTransforms[connectedToppingTransforms.Count - 1];
+            Vector3 lastToppingPosition = lastToppingTransform.position;
+            Vector3 fingerPosition = smoothedWorldPosition;
+
+            float lastWeight = Mathf.Clamp01(cameraFocusWeightForLastTopping);
+            float fingerWeight = 1f - lastWeight;
+
+            // Weighted focus point
+            Vector3 weightedFocus = lastToppingPosition * lastWeight + fingerPosition * fingerWeight;
+            weightedFocus.z = mainCamera.transform.position.z; // Keep camera Z constant
+
+            // Compute distance from world origin to slow follow when far away
+            float focusDistanceFromOrigin = weightedFocus.magnitude;
+            float distanceFactor = 1f / (1f + focusDistanceFromOrigin * cameraFollowSlowdownMultiplier);
+            float adaptiveSmoothing = Mathf.Lerp(cameraFollowMinSmoothing, cameraFollowMaxSmoothing, distanceFactor);
+
+            // Apply clamping to restrict camera X and Y movement within +-2
+            weightedFocus.x = Mathf.Clamp(weightedFocus.x, -2f, 2f);
+            weightedFocus.y = Mathf.Clamp(weightedFocus.y, -2f, 2f);
+
+            // Update target position and zoom
+            targetCameraPosition = weightedFocus;
+            targetCameraSize = Mathf.Clamp(initialCameraSize * cameraZoomInAmount, minCameraSize, maxCameraSize);
+
+            // Smoothly interpolate camera position and size
+            mainCamera.transform.position = Vector3.Lerp(mainCamera.transform.position, targetCameraPosition, adaptiveSmoothing);
+            mainCamera.orthographicSize = Mathf.Lerp(mainCamera.orthographicSize, targetCameraSize, cameraZoomSmoothing);
+            return;
+        }
+        // When not dragging, return smoothly to initial position and zoom
+        mainCamera.transform.position = Vector3.Lerp(mainCamera.transform.position, initialCameraPosition, cameraFollowSmoothing);
+        mainCamera.orthographicSize = Mathf.Lerp(mainCamera.orthographicSize, initialCameraSize, cameraZoomSmoothing);
     }
 }
