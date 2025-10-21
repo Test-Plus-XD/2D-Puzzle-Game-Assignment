@@ -56,14 +56,8 @@ public class Logic : MonoBehaviour
     {
         inputActive = false;
         // If 3 or more are stored, clear them
-        if(storedToppings.Count >= 3)
-        {
-            StartCoroutine(ClearStoredCoroutine());
-        } else
-        {
-            // Not enough toppings, play fail sound or reset chain
-            ResetChain();
-        }
+        if(storedToppings.Count >= 3) StartCoroutine(ClearStoredCoroutine());
+        else ResetChain();// Not enough toppings, play fail sound or reset chain
     }
 
     // Try to see if a topping is under the given world position and register it
