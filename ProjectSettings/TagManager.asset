@@ -6,12 +6,11 @@ TagManager:
   tags:
   - Agar
   - Boba
-  - Coconut
-  - Coffee
-  - Grass
-  - Pudding
   - Taro
+  - Grass
   - Ube
+  - Coffee
+  - Coconut
   layers:
   - Default
   - TransparentFX

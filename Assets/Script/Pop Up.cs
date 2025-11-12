@@ -31,6 +31,9 @@ public class PopUp : MonoBehaviour
     [Tooltip("Sprite used for the super combo 'Excellent' popup.")]
     public Sprite spriteExcellent;
 
+    [Tooltip("Sprite used for the 'Time's Up' popup.")]
+    public Sprite spriteTimesUp;
+
     [Tooltip("Fixed animation duration in seconds for each popup (assignment requires 1 second).")]
     public float animationDuration = 1f;
 
@@ -113,6 +116,12 @@ public class PopUp : MonoBehaviour
     public void ShowSuperComboExcellent(Vector3? optionalWorldPosition = null, Action callbackFunction = null)
     {
         StartCoroutine(ShowSpriteCoroutine(spriteExcellent, optionalWorldPosition, callbackFunction));
+    }
+
+    // Show 'Time's Up' popup at the preset world location (or scene anchor if present).
+    public void ShowTimesUp(Action callbackFunction = null)
+    {
+        StartCoroutine(ShowSpriteCoroutine(spriteTimesUp, null, callbackFunction));
     }
 
     // Internal: show a single sprite on the assigned popupGameObject, moving it to the proper world position if requested.

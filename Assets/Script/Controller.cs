@@ -79,7 +79,7 @@ public class Controller : MonoBehaviour
         if(dotContainer == null) dotContainer = this.transform;
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
         // Read input (mouse or first touch)
         Vector3 rawWorldPosition;

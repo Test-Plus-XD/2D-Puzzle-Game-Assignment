@@ -47,14 +47,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56e0ee0032e83c440aa9a20aaf7e23a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Topping
-  explosionParticlePrefab: {fileID: 0}
+  explosionPrefab: {fileID: 8460667080445658512, guid: a3e2c3406e02f2c4ba86cfb1604277bd, type: 3}
   destroyDelay: 0.6
   scaleShrinkSpeed: 3
-  removeSound: {fileID: 0}
+  removeSound: {fileID: 8300000, guid: 7b20f55a08c140d4c8c2a1911dc594fe, type: 3}
   soundVolume: 0.6
 --- !u!212 &7648474809249887299
 SpriteRenderer:
-  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -78,7 +77,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -99,8 +98,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
+  m_SortingOrder: 1
   m_Sprite: {fileID: 21300000, guid: 02f3ed55d88fab2499f91ed207f3590d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -110,6 +108,7 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
+  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!50 &3591614420478223498
 Rigidbody2D:
