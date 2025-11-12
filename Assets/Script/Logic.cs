@@ -166,8 +166,8 @@ public class Logic : MonoBehaviour
     // Check if topping has special abilities and apply them
     void CheckSpecialToppingType(GameObject topping)
     {
-        // Check for DualConnectTopping component
-        DualConnectTopping dualConnectTopping = topping.GetComponent<DualConnectTopping>();
+        // Check for DualConnect component
+        DualConnect dualConnectTopping = topping.GetComponent<DualConnect>();
         if (dualConnectTopping != null && !dualConnectActive)
         {
             // Activate dual connect for next chain
