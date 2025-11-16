@@ -54,6 +54,7 @@ MonoBehaviour:
   soundVolume: 0.6
 --- !u!212 &3004268153333423654
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -72,6 +73,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -93,9 +96,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: a43ddfda22ce14c42b3f198026dc978a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -105,7 +110,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!50 &6263697655274797746
 Rigidbody2D:
@@ -143,7 +147,7 @@ CapsuleCollider2D:
   m_GameObject: {fileID: 3586009968035132360}
   m_Enabled: 1
   serializedVersion: 3
-  m_Density: 1
+  m_Density: 1.2
   m_Material: {fileID: 6200000, guid: 46e7fb521cfdc2046a2e5302d6bfc04f, type: 2}
   m_IncludeLayers:
     serializedVersion: 2

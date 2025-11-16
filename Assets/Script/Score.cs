@@ -34,7 +34,7 @@ public class ScoreManager : MonoBehaviour
     private void Awake()
     {
         // Singleton pattern
-        if (Instance != null && Instance != this)
+        if(Instance != null && Instance != this)
         {
             Destroy(this.gameObject);
             return;
@@ -42,40 +42,43 @@ public class ScoreManager : MonoBehaviour
         Instance = this;
         // Setup audio source
         audioSource = gameObject.GetComponent<AudioSource>();
-        if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+        if(audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
         // Initialize UI
-        if (scoreText != null) scoreText.text = "0";
-        if (pointsGainedText != null) pointsGainedText.gameObject.SetActive(false);
+        if(scoreText != null) scoreText.text = "0";
+        if(pointsGainedText != null) pointsGainedText.gameObject.SetActive(false);
     }
 
-    /// Calculate and add score based on chain length.
+    /// Calculate and add score based on chain count and physical length.
     /// Called by Logic.cs when toppings are cleared.
-    public void AddScoreForChain(int chainLength)
+    /// chainCount: Number of toppings connected
+    /// physicalLength: Total distance in world units between all connected toppings
+    public void AddScoreForChain(int chainCount, float physicalLength)
     {
-        if (chainLength < 3) return;
-        // Determine multiplier based on chain length
+        if(chainCount < 3) return;
+        // Determine multiplier based on chain count
         float multiplier = 1f;
-        if (chainLength >= 9)
+        if(chainCount >= 9)
         {
             multiplier = superComboMultiplier;
         }
-        else if (chainLength >= 6)
+        else if(chainCount >= 6)
         {
             multiplier = comboMultiplier;
         }
-        // Calculate points: base * length * multiplier
-        int pointsGained = Mathf.RoundToInt(basePointsPerTopping * chainLength * multiplier);
+        // Calculate points: base * count * physical length * multiplier
+        // Physical length adds significant strategic depth as longer connections earn more
+        int pointsGained = Mathf.RoundToInt(basePointsPerTopping * chainCount * physicalLength * multiplier);
         currentScore += pointsGained;
         // Update UI
         UpdateScoreDisplay();
         // Show points gained popup
-        if (pointsGainedText != null)
+        if(pointsGainedText != null)
         {
             StartCoroutine(ShowPointsGainedCoroutine(pointsGained));
         }
         // Play score sound
-        if (scoreSound != null && audioSource != null)
+        if(scoreSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(scoreSound, scoreSoundVolume);
         }
@@ -86,7 +89,7 @@ public class ScoreManager : MonoBehaviour
     {
         currentScore += timeExtensionBonus;
         UpdateScoreDisplay();
-        if (pointsGainedText != null)
+        if(pointsGainedText != null)
         {
             StartCoroutine(ShowPointsGainedCoroutine(timeExtensionBonus, "+TIME BONUS! "));
         }
@@ -115,7 +118,7 @@ public class ScoreManager : MonoBehaviour
     // Update the score text display
     private void UpdateScoreDisplay()
     {
-        if (scoreText != null)
+        if(scoreText != null)
         {
             scoreText.text = currentScore.ToString();
         }
@@ -124,7 +127,7 @@ public class ScoreManager : MonoBehaviour
     // Coroutine to show temporary points gained popup
     private System.Collections.IEnumerator ShowPointsGainedCoroutine(int points, string prefix = "+")
     {
-        if (pointsGainedText == null) yield break;
+        if(pointsGainedText == null) yield break;
         // Set text and show
         pointsGainedText.text = prefix + points.ToString();
         pointsGainedText.gameObject.SetActive(true);
@@ -132,7 +135,7 @@ public class ScoreManager : MonoBehaviour
         float elapsed = 0f;
         Vector3 initialScale = pointsGainedText.transform.localScale;
         Color initialColour = pointsGainedText.color;
-        while (elapsed < pointsGainedDisplayDuration)
+        while(elapsed < pointsGainedDisplayDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / pointsGainedDisplayDuration;

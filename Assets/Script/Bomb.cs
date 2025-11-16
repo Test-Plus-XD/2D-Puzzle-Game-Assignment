@@ -1,8 +1,9 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
-/// Special topping that explodes when connected, clearing all toppings within radius.
-/// Inherits from Topping to maintain base behaviour.
 [RequireComponent(typeof(Collider2D), typeof(Rigidbody2D), typeof(SpriteRenderer))]
 public class Bomb : MonoBehaviour
 {
@@ -12,14 +13,14 @@ public class Bomb : MonoBehaviour
     [Tooltip("Layer mask for toppings that can be cleared by explosion.")]
     public LayerMask toppingLayerMask;
     [Tooltip("Bonus points awarded per topping cleared by explosion.")]
-    public int bonusPointsPerTopping = 5;
+    public float bonusPointsPerTopping = 5f;
     [Header("Visual Effects")]
     [Tooltip("Particle system prefab for explosion visual.")]
     public ParticleSystem explosionParticlePrefab;
     [Tooltip("Time before bomb object is destroyed after explosion.")]
     public float destroyDelay = 0.8f;
-    [Tooltip("Speed of scale shrinking animation.")]
-    public float scaleShrinkSpeed = 3f;
+    [Tooltip("Target scale to shrink to (0 means shrink to nothing).")]
+    public Vector3 shrinkTargetScale = Vector3.zero;
     [Header("Audio")]
     [Tooltip("Sound played when bomb explodes.")]
     public AudioClip explosionSound;
@@ -32,7 +33,16 @@ public class Bomb : MonoBehaviour
     public float pulseSpeed = 2f;
     [Tooltip("Scale multiplier for pulse animation.")]
     public float pulseScale = 1.2f;
+    [Header("Designer Events")]
+    [Tooltip("Event invoked after the bomb has cleared toppings. The int parameter is the number of toppings cleared.")]
+    public UnityEvent<int> onExploded;
+
+    // Static event for code-based subscription; parameter is number of toppings cleared.
+    public static event Action<int> Exploded;
+
+    // Internal state to prevent re-explosion
     private bool isExploded = false;
+    // Cached components
     private Rigidbody2D rigidBody;
     private Collider2D objectCollider;
     private SpriteRenderer spriteRenderer;
@@ -49,16 +59,16 @@ public class Bomb : MonoBehaviour
     private void Start()
     {
         // Start warning pulse animation if enabled
-        if (enableWarningPulse)
+        if(enableWarningPulse)
         {
             StartCoroutine(WarningPulseCoroutine());
         }
     }
 
-    /// Called by Logic.cs when this topping is included in a chain
+    // Called by Logic when this topping is included in a chain
     public void Remove()
     {
-        if (isExploded) return;
+        if(isExploded) return;
         isExploded = true;
         // Trigger explosion
         StartCoroutine(ExplodeCoroutine());
@@ -67,7 +77,7 @@ public class Bomb : MonoBehaviour
     // Pulsing animation to indicate bomb status
     private IEnumerator WarningPulseCoroutine()
     {
-        while (!isExploded)
+        while(!isExploded)
         {
             float scale = 1f + Mathf.Sin(Time.time * pulseSpeed) * (pulseScale - 1f);
             transform.localScale = initialScale * scale;
@@ -79,20 +89,20 @@ public class Bomb : MonoBehaviour
     private IEnumerator ExplodeCoroutine()
     {
         // Disable physics interaction immediately
-        if (objectCollider != null) objectCollider.enabled = false;
-        if (rigidBody != null)
+        if(objectCollider != null) objectCollider.enabled = false;
+        if(rigidBody != null)
         {
             rigidBody.simulated = false;
             rigidBody.linearVelocity = Vector2.zero;
             rigidBody.angularVelocity = 0f;
         }
         // Play explosion sound
-        if (explosionSound != null)
+        if(explosionSound != null)
         {
             AudioSource.PlayClipAtPoint(explosionSound, transform.position, explosionVolume);
         }
         // Spawn explosion particle effect
-        if (explosionParticlePrefab != null)
+        if(explosionParticlePrefab != null)
         {
             ParticleSystem explosion = Instantiate(explosionParticlePrefab, transform.position, Quaternion.identity);
             explosion.transform.localScale = Vector3.one * (explosionRadius / 1f);
@@ -102,34 +112,60 @@ public class Bomb : MonoBehaviour
         // Find all toppings within explosion radius
         Vector2 origin = transform.position;
         Collider2D[] hitColliders = Physics2D.OverlapCircleAll(origin, explosionRadius, toppingLayerMask);
-        int toppingsCleared = 0;
-        foreach (Collider2D hitCollider in hitColliders)
+        List<GameObject> clearedObjects = new List<GameObject>();
+        foreach(Collider2D hitCollider in hitColliders)
         {
-            if (hitCollider == null || hitCollider.gameObject == this.gameObject) continue;
-            // Send Remove message to trigger their removal animation
-            hitCollider.gameObject.SendMessage("Remove", SendMessageOptions.DontRequireReceiver);
+            if(hitCollider == null || hitCollider.gameObject == this.gameObject) continue;
+            clearedObjects.Add(hitCollider.gameObject);
+        }
+        int toppingsCleared = 0;
+        // Remove each cleared object with slight delay for visuals
+        foreach(var obj in clearedObjects)
+        {
+            if(obj == null) continue;
+            obj.SendMessage("Remove", SendMessageOptions.DontRequireReceiver);
             toppingsCleared++;
-            // Small delay between each removal for visual effect
             yield return new WaitForSeconds(0.05f);
         }
         // Award bonus points for explosion clears
-        if (ScoreManager.Instance != null && toppingsCleared > 0)
+        if(ScoreManager.Instance != null && toppingsCleared > 0)
         {
-            int bonusPoints = toppingsCleared * bonusPointsPerTopping;
-            ScoreManager.Instance.AddBonusPoints(bonusPoints);
+            float bonusPoints = toppingsCleared * bonusPointsPerTopping;
+            ScoreManager.Instance.AddBonusPoints(Mathf.FloorToInt(bonusPoints));
         }
-        // Shrink and destroy bomb object
+        // Notify listeners that the bomb cleared toppings
+        if(toppingsCleared > 0)
+        {
+            try
+            {
+                Exploded?.Invoke(toppingsCleared); // Raise static event for code subscribers.
+            }
+            catch(Exception ex)
+            {
+                Debug.LogWarning("Bomb: exception invoking Exploded event: " + ex, this);
+            }
+            try
+            {
+                onExploded?.Invoke(toppingsCleared); // Invoke designer-configurable UnityEvent.
+            }
+            catch(Exception ex)
+            {
+                Debug.LogWarning("Bomb: exception invoking onExploded UnityEvent: " + ex, this);
+            }
+        }
+        // Shrink to target scale and destroy bomb object
         float elapsed = 0f;
         Vector3 startScale = transform.localScale;
-        while (elapsed < destroyDelay)
+        while(elapsed < destroyDelay)
         {
             elapsed += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(startScale, Vector3.zero, elapsed * scaleShrinkSpeed);
+            float t = elapsed / destroyDelay;
+            transform.localScale = Vector3.Lerp(startScale, shrinkTargetScale, t);
             // Fade sprite
-            if (spriteRenderer != null)
+            if(spriteRenderer != null)
             {
                 Color colour = spriteRenderer.color;
-                colour.a = Mathf.Lerp(1f, 0f, elapsed / destroyDelay);
+                colour.a = Mathf.Lerp(1f, 0f, t);
                 spriteRenderer.color = colour;
             }
             yield return null;
@@ -137,7 +173,7 @@ public class Bomb : MonoBehaviour
         Destroy(gameObject);
     }
 
-    // Visualize explosion radius in editor
+    // Visualise explosion radius in editor
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
