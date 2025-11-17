@@ -8,7 +8,7 @@ PhysicsMaterial2D:
   m_PrefabAsset: {fileID: 0}
   m_Name: Abrasive
   serializedVersion: 2
-  friction: 1.4
+  friction: 3.5
   bounciness: 0.07
-  m_FrictionCombine: 4
+  m_FrictionCombine: 2
   m_BounceCombine: 1
