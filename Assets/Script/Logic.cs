@@ -396,7 +396,9 @@ public class Logic : MonoBehaviour
         // Spawn bomb topping as reward if threshold met
         if(shouldSpawnBomb && spawner != null)
         {
-            spawner.SpawnBombTopping();
+            GameObject spawnedBomb = spawner.SpawnBombTopping();
+            if(spawnedBomb != null) Debug.Log("Logic: Bomb reward spawned by Spawner.", this);
+            else Debug.LogWarning("Logic: Spawner did not return a bomb instance (check bombToppingPrefab assignment).", this);
         }
         // Cmpute combined refill count and call spawner just once
         int totalRefillCount = clearedCount + pendingExtraRefillCount;
