@@ -190,9 +190,9 @@ public class Spawner : MonoBehaviour
     // Count active toppings in scene using Topping component as primary signal.
     private int CountActiveToppings()
     {
-        // Prefer components of type Topping when available (most robust).
-        Topping[] toppings = Object.FindObjectsOfType<Topping>();
-        if (toppings != null && toppings.Length > 0) return toppings.Length;
+        // Prefer components of type Topping when available.
+        Topping[] toppings = UnityEngine.Object.FindObjectsByType<Topping>(UnityEngine.FindObjectsSortMode.InstanceID);
+        if(toppings != null && toppings.Length > 0) return toppings.Length;
         // Fallback: count children under parent container (if used consistently).
         if (parentContainer != null) return parentContainer.childCount;
         return 0;
