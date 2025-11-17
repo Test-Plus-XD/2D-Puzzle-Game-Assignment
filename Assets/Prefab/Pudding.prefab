@@ -55,7 +55,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1048576
   bonusPointsPerTopping: 8
-  explosionParticlePrefab: {fileID: 8443315704496310908, guid: 6ef35fa36e3a65043b2d800600204bdd, type: 3}
+  explosionParticlePrefab: {fileID: 5024009746357069192, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
+  explosionPrefab: {fileID: 8443315704496310910, guid: 6ef35fa36e3a65043b2d800600204bdd, type: 3}
   destroyDelay: 0.8
   shrinkTargetScale: {x: 0, y: 0, z: 0}
   explosionSound: {fileID: 8300000, guid: 7b20f55a08c140d4c8c2a1911dc594fe, type: 3}
@@ -95,6 +96,8 @@ MonoBehaviour:
   scaleShrinkSpeed: 3
   removeSound: {fileID: 8300000, guid: 7b20f55a08c140d4c8c2a1911dc594fe, type: 3}
   soundVolume: 0.6
+  allowStick: 1
+  unstickLinearVelocity: {x: 0, y: -1.5}
 --- !u!212 &181080368666551647
 SpriteRenderer:
   serializedVersion: 2

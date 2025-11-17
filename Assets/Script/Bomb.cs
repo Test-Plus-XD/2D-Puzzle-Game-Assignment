@@ -14,18 +14,23 @@ public class Bomb : MonoBehaviour
     public LayerMask toppingLayerMask;
     [Tooltip("Bonus points awarded per topping cleared by explosion.")]
     public float bonusPointsPerTopping = 5f;
+
     [Header("Visual Effects")]
     [Tooltip("Particle system prefab for explosion visual.")]
     public ParticleSystem explosionParticlePrefab;
+    [Tooltip("Optional explosion GameObject prefab (e.g. animated sprite, VFX container) to instantiate on explosion.")]
+    public GameObject explosionPrefab;
     [Tooltip("Time before bomb object is destroyed after explosion.")]
     public float destroyDelay = 0.8f;
     [Tooltip("Target scale to shrink to (0 means shrink to nothing).")]
     public Vector3 shrinkTargetScale = Vector3.zero;
+
     [Header("Audio")]
     [Tooltip("Sound played when bomb explodes.")]
     public AudioClip explosionSound;
     [Tooltip("Volume for explosion sound.")]
     public float explosionVolume = 0.8f;
+
     [Header("Warning Animation")]
     [Tooltip("Enable pulsing animation to warn player this is a bomb.")]
     public bool enableWarningPulse = true;
@@ -33,6 +38,7 @@ public class Bomb : MonoBehaviour
     public float pulseSpeed = 2f;
     [Tooltip("Scale multiplier for pulse animation.")]
     public float pulseScale = 1.2f;
+
     [Header("Designer Events")]
     [Tooltip("Event invoked after the bomb has cleared toppings. The int parameter is the number of toppings cleared.")]
     public UnityEvent<int> onExploded;
@@ -108,6 +114,16 @@ public class Bomb : MonoBehaviour
             explosion.transform.localScale = Vector3.one * (explosionRadius / 1f);
             explosion.Play();
             Destroy(explosion.gameObject, explosion.main.duration + explosion.main.startLifetime.constantMax);
+        }
+        // Spawn optional explosion prefab
+        if(explosionPrefab != null)
+        {
+            GameObject explosionInstance = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
+            // Scale the prefab so its visual roughly matches explosionRadius
+            float diameter = explosionRadius * 1.5f;
+            explosionInstance.transform.localScale = Vector3.one * diameter;
+            // Attempt to destroy the prefab instance after a short time so it doesn't persist forever
+            Destroy(explosionInstance, Mathf.Max(1.0f, destroyDelay + 0.5f));
         }
         // Find all toppings within explosion radius
         Vector2 origin = transform.position;

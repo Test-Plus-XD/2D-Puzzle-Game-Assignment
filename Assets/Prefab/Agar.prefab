@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b091b9febd4310e45a92ac3a25c020c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  activationParticlePrefab: {fileID: 5024009746357069192, guid: ec3f674830402cc45bce805cf6493db7, type: 3}
+  activationParticlePrefab: {fileID: 8443315704496310908, guid: 6ef35fa36e3a65043b2d800600204bdd, type: 3}
   destroyDelay: 0.6
   shrinkTargetScale: {x: 0, y: 0, z: 0}
   activationSound: {fileID: 8300000, guid: 7b20f55a08c140d4c8c2a1911dc594fe, type: 3}
@@ -72,6 +72,8 @@ MonoBehaviour:
   scaleShrinkSpeed: 3
   removeSound: {fileID: 8300000, guid: 7b20f55a08c140d4c8c2a1911dc594fe, type: 3}
   soundVolume: 0.6
+  allowStick: 1
+  unstickLinearVelocity: {x: 0, y: -1.5}
 --- !u!212 &3095413495836816582
 SpriteRenderer:
   serializedVersion: 2
