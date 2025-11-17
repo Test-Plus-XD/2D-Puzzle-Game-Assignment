@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// Manages the scoring system for the bubble tea puzzle game.
-/// Score calculation: Base points per topping * chain length * combo multiplier
+/// Score calculation: (Base points per topping * chain count) + (physical length bonus) * combo multiplier
 /// Combo multipliers: 3-5 chain = 1x, 6-8 chain = 2x, 9+ chain = 3x
 public class ScoreManager : MonoBehaviour
 {
@@ -10,6 +10,8 @@ public class ScoreManager : MonoBehaviour
     [Header("Score Settings")]
     [Tooltip("Base points awarded per topping removed.")]
     public int basePointsPerTopping = 10;
+    [Tooltip("Points awarded per world unit of physical chain length.")]
+    public int pointsPerUnitLength = 5;
     [Tooltip("Multiplier applied for chains of 6-8 toppings.")]
     public float comboMultiplier = 2f;
     [Tooltip("Multiplier applied for chains of 9+ toppings.")]
@@ -44,15 +46,14 @@ public class ScoreManager : MonoBehaviour
         audioSource = gameObject.GetComponent<AudioSource>();
         if(audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
-        // Initialize UI
+        // Initialise UI
         if(scoreText != null) scoreText.text = "0";
         if(pointsGainedText != null) pointsGainedText.gameObject.SetActive(false);
     }
 
     /// Calculate and add score based on chain count and physical length.
-    /// Called by Logic.cs when toppings are cleared.
-    /// chainCount: Number of toppings connected
-    /// physicalLength: Total distance in world units between all connected toppings
+    /// New formula: (base * count) + (length * lengthBonus) then apply multiplier
+    /// This ensures base score is substantial even for short distances
     public void AddScoreForChain(int chainCount, float physicalLength)
     {
         if(chainCount < 3) return;
@@ -61,14 +62,16 @@ public class ScoreManager : MonoBehaviour
         if(chainCount >= 9)
         {
             multiplier = superComboMultiplier;
-        }
-        else if(chainCount >= 6)
+        } else if(chainCount >= 6)
         {
             multiplier = comboMultiplier;
         }
-        // Calculate points: base * count * physical length * multiplier
-        // Physical length adds significant strategic depth as longer connections earn more
-        int pointsGained = Mathf.RoundToInt(basePointsPerTopping * chainCount * physicalLength * multiplier);
+        // Calculate base score from topping count
+        int baseScore = basePointsPerTopping * chainCount;
+        // Calculate bonus from physical length
+        int lengthBonus = Mathf.RoundToInt(physicalLength * pointsPerUnitLength);
+        // Combine and apply multiplier
+        int pointsGained = Mathf.RoundToInt((baseScore + lengthBonus) * multiplier);
         currentScore += pointsGained;
         // Update UI
         UpdateScoreDisplay();
@@ -84,7 +87,7 @@ public class ScoreManager : MonoBehaviour
         }
     }
 
-    /// Add bonus points for time extension.
+    /// Add bonus points for time extension
     public void AddTimeExtensionBonus()
     {
         currentScore += timeExtensionBonus;
@@ -95,20 +98,20 @@ public class ScoreManager : MonoBehaviour
         }
     }
 
-    /// Add custom bonus points (for special features).
+    /// Add custom bonus points (for special features)
     public void AddBonusPoints(int points)
     {
         currentScore += points;
         UpdateScoreDisplay();
     }
 
-    /// Get current score value.
+    /// Get current score value
     public int GetCurrentScore()
     {
         return currentScore;
     }
 
-    /// Reset score to zero (for new game).
+    /// Reset score to zero (for new game)
     public void ResetScore()
     {
         currentScore = 0;

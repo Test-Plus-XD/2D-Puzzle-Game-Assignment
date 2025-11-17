@@ -334,7 +334,7 @@ public class Logic : MonoBehaviour
         if(shouldSpawnBomb) hasSpawnedBombThisCombo = true;
         // Reset chain state early to allow player input while the clear animates
         ResetChain();
-        // Clear toppings with animation (this will invoke Bomb.Remove() which in turn will raise Bomb.Exploded event)
+        // Clear toppings with animation (this will invoke Bomb.Remove() which raises Bomb.Exploded event)
         for(int index = 0; index < itemsToClear.Length; index++)
         {
             var itemObject = itemsToClear[index];
@@ -346,11 +346,13 @@ public class Logic : MonoBehaviour
             itemObject.SendMessage("Remove", SendMessageOptions.DontRequireReceiver);
             yield return new WaitForSeconds(0.1f);
         }
-        // NOTE:
-        // At this point some Bomb.Exploded events may have already fired and incremented pendingExtraRefillCount.
-        // Wait a short buffer to allow bomb coroutines to register their events if they run slightly later.
-        yield return new WaitForSeconds(0.1f);
-        // Calculate total physical distance between all connected toppings
+        // CRITICAL: Wait for bomb explosions to complete
+        // Bombs take time to explode and clear additional toppings
+        // We need to wait long enough for all bomb coroutines to finish and fire their events
+        // The bomb's destroyDelay is 0.8s, plus 0.05s per topping cleared, so we wait conservatively
+        yield return new WaitForSeconds(1.0f);
+        // Now pendingExtraRefillCount should have all bomb-cleared toppings accumulated
+        // Calculate total physical distance between connected toppings (for scoring)
         float totalPhysicalLength = CalculateChainPhysicalLength(itemsToClear);
         // Add score via ScoreManager (uses both count and physical length)
         if(ScoreManager.Instance != null)
@@ -402,29 +404,17 @@ public class Logic : MonoBehaviour
         {
             try
             {
-                spawner.Refill(totalRefillCount, false);
+                spawner.SpawnMore(totalRefillCount);
             }
             catch(System.Exception)
             {
-                StartCoroutine(RefillCoroutine(totalRefillCount));
+                System.Console.Error.WriteLine("Logic: Exception occurred while calling spawner.SpawnMore().");
             }
         }
         // Reset pending extras after refill is scheduled
         pendingExtraRefillCount = 0;
         // Done clearing chain
         isClearingChain = false;
-    }
-
-    // Example refill coroutine that asks spawner to spawn N items with a slight delay
-    IEnumerator RefillCoroutine(int count)
-    {
-        int spawned = 0;
-        while(spawned < count)
-        {
-            spawner.SpawnOne();
-            spawned++;
-            yield return new WaitForSeconds(0.05f);
-        }
     }
 
     // Small coroutine to display a UI text popup, animate it, then destroy (legacy fallback)

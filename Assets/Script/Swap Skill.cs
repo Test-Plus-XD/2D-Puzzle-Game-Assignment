@@ -186,7 +186,7 @@ public class SwapSkill : MonoBehaviour
         foreach(GameObject bObject in allBObjects)
         {
             if(bObject == null) continue;
-            // Skip if this object somehow is the selected A (rare) ¡X but normally it won't be.
+            // Skip if this object somehow is the selected A (rare) ï¿½X but normally it won't be.
             if(bObject == toppingA) continue;
             // Set tag to A type
             bObject.tag = tagA;

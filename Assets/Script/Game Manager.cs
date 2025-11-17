@@ -8,6 +8,8 @@ public class GameManager : MonoBehaviour
     [Header("Gameplay Settings")]
     [Tooltip("Reference to the player controller script that should be enabled or disabled.")]
     public Controller controller;
+    [Tooltip("Reference to the topping spawner script that should be enabled or disabled.")]
+    public Spawner spawner;
     [Tooltip("Duration of the main gameplay timer in seconds.")]
     public float gameplayDuration = 60f;
     [Tooltip("Number of decimal places to display on the gameplay timer.")]
@@ -31,15 +33,22 @@ public class GameManager : MonoBehaviour
     public AudioClip timeExtensionSound;
     [Tooltip("Volume for time extension sound.")]
     public float timeExtensionVolume = 0.8f;
+    [Header("Background Settings")]
+    [Tooltip("UI Image that will have its colour synced to the remaining time.")]
+    public SpriteRenderer backgroundImage;
+    [Tooltip("Colour when time is full (255,255,255).")]
+    public Color32 backgroundColourFull = new Color32(255, 255, 255, 255);
+    [Tooltip("Colour when time is empty (155,155,155).")]
+    public Color32 backgroundColourEmpty = new Color32(155, 155, 155, 255);
     [Header("UI Settings")]
     [Tooltip("Panel or GameObject to show at game start.")]
     public GameObject startPanel;
+    [Tooltip("Button on start panel to begin game.")]
+    public Button startButton;
     [Tooltip("Panel or GameObject to show during gameplay.")]
     public GameObject gameplayPanel;
     [Tooltip("Text component on the UI Canvas that displays the timer.")]
     public Text timerText;
-    [Tooltip("Button on start panel to begin game.")]
-    public Button startButton;
     [Tooltip("Panel or GameObject to show when time is up.")]
     public GameObject timesUpPanel;
     [Tooltip("Text component showing final score on times up panel.")]
@@ -55,6 +64,7 @@ public class GameManager : MonoBehaviour
     {
         // Validate references
         if(controller == null) Debug.LogError("Controller reference is not assigned in GameManager.");
+        if(spawner == null) Debug.LogError("Spawner reference is not assigned in GameManager.");
         if(popUp == null) Debug.LogError("PopUp reference is not assigned in GameManager.");
         if(timerText == null) Debug.LogError("Timer Text reference is not assigned in GameManager.");
         // Setup audio source for time extension sound
@@ -90,6 +100,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        // Prevent divide-by-zero and early errors.
+        if(gameplayDuration <= 0f) return;
+        // Compute normalised percentage of remaining time in [0,1].
+        float percentage = Mathf.Clamp01(remainingTime / gameplayDuration);
+        Color32 newColour = Color32.Lerp(backgroundColourEmpty, backgroundColourFull, percentage);
+        // Apply to background image if assigned.
+        if(backgroundImage != null) backgroundImage.color = newColour;
+    }
+
     // Called when player clicks start button
     private void OnStartButtonClicked()
     {
@@ -101,6 +122,7 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator GameSequence()
     {
+        spawner.EnableGameplay();
         // Enable controller for initial setup
         controller.enabled = true;
         controller.gameObject.SetActive(true);
